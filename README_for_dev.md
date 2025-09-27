@@ -31,8 +31,10 @@
 - [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
 - [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
 
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
 ## Для тестирования на iOS
 
 Скачииваем приложение [Expo Go](https://expo.dev/go), с помощью камеры телефона сканим qr, и сможем увидеть наше приложение локально
+
+## Процесс разработки
+
+Разработка должна вестись строго в отдельных ветках, вливание будет происходить только после проверки и аппрува
