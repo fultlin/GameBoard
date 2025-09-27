@@ -1,51 +1,93 @@
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { useEffect, useState } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
-/**
- * Главный экран приложения "Морской бой"
- * Содержит навигацию к основным разделам приложения
- */
 export default function HomeScreen() {
   const router = useRouter();
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    checkAuth();
+  }, []);
+
+  const checkAuth = async () => {
+    try {
+      const token = await AsyncStorage.getItem('auth_token');
+      setIsAuthenticated(!!token);
+    } catch (error) {
+      console.error('Error checking auth:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <View style={styles.container}>
+        <Text>Загрузка...</Text>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
-      {/* Заголовок приложения */}
       <View style={styles.header}>
         <Ionicons name="boat" size={64} color="#007AFF" />
         <Text style={styles.title}>Морской бой</Text>
         <Text style={styles.subtitle}>Классическая игра</Text>
       </View>
 
-      {/* Навигационные кнопки */}
       <View style={styles.buttonContainer}>
-        <TouchableOpacity 
-          style={styles.button}
-          onPress={() => router.push('/game')}
-        >
-          <Ionicons name="play" size={24} color="#fff" />
-          <Text style={styles.buttonText}>Новая игра</Text>
-        </TouchableOpacity>
+        {isAuthenticated ? (
+          <>
+            <TouchableOpacity 
+              style={styles.button}
+              onPress={() => router.push('/(tabs)/lobby')}
+            >
+              <Ionicons name="play" size={24} color="#fff" />
+              <Text style={styles.buttonText}>Новая игра</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity 
+              style={styles.button}
+              onPress={() => router.push('/(tabs)/settings')}
+            >
+              <Ionicons name="settings" size={24} color="#fff" />
+              <Text style={styles.buttonText}>Настройки</Text>
+            </TouchableOpacity>
+          </>
+        ) : (
+          <>
+            <TouchableOpacity 
+              style={styles.button}
+              onPress={() => router.push('/(auth)/login')}
+            >
+              <Ionicons name="log-in" size={24} color="#fff" />
+              <Text style={styles.buttonText}>Войти</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity 
+              style={styles.button}
+              onPress={() => router.push('/(auth)/register')}
+            >
+              <Ionicons name="person-add" size={24} color="#fff" />
+              <Text style={styles.buttonText}>Регистрация</Text>
+            </TouchableOpacity>
+          </>
+        )}
 
         <TouchableOpacity 
           style={styles.button}
-          onPress={() => router.push('/settings')}
-        >
-          <Ionicons name="settings" size={24} color="#fff" />
-          <Text style={styles.buttonText}>Настройки</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity 
-          style={styles.button}
-          onPress={() => router.push('/rules')}
+          onPress={() => router.push('/(tabs)/rules')}
         >
           <Ionicons name="book" size={24} color="#fff" />
           <Text style={styles.buttonText}>Правила игры</Text>
         </TouchableOpacity>
       </View>
 
-      {/* Информация о версии */}
       <View style={styles.footer}>
         <Text style={styles.version}>Версия 1.0.0</Text>
       </View>
