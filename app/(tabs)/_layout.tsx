@@ -1,12 +1,14 @@
-import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
-import { StyleSheet, Animated, Easing } from 'react-native';
-import { useRef, useEffect } from 'react';
+import { LinearGradient } from 'expo-linear-gradient';
+import { Tabs } from 'expo-router';
+import { useEffect, useRef } from 'react';
+import { Animated, Easing, StyleSheet } from 'react-native';
+import { useSoundManager } from '../hooks/useSoundManager';
 
 export default function TabLayout() {
   const tabFloat = useRef(new Animated.Value(0)).current;
+  const soundManager = useSoundManager();
 
   useEffect(() => {
     Animated.loop(
@@ -25,7 +27,7 @@ export default function TabLayout() {
         }),
       ])
     ).start();
-  }, []);
+  }, [tabFloat]);
 
   const TabIcon = ({ name, color, size, focused }: { name: string; color: string; size: number; focused: boolean }) => (
     <Animated.View
@@ -87,7 +89,7 @@ export default function TabLayout() {
           borderTopWidth: 0,
           backgroundColor: 'transparent',
           elevation: 0,
-          height: 90,
+          height: 100,
           paddingBottom: 25,
           paddingTop: 12,
         },
@@ -126,6 +128,11 @@ export default function TabLayout() {
           />
         ),
         headerShadowVisible: false,
+      }}
+      screenListeners={{
+        tabPress: async () => {
+          await soundManager.playMenuSound();
+        },
       }}
     >
       <Tabs.Screen
