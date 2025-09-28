@@ -1,5 +1,5 @@
-import { ScrollView, Text, View, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
 
 /**
  * Экран с правилами игры "Морской бой"
@@ -85,6 +85,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     padding: 16,
+    paddingBottom: 106, // 16 + 90 для отступа от нижнего меню
   },
   title: {
     fontSize: 24,

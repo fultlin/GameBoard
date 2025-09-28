@@ -1,38 +1,46 @@
-import { useState, useRef, useEffect } from 'react';
-import { 
-  View, 
-  Text, 
-  Switch, 
-  TouchableOpacity, 
-  StyleSheet, 
-  ScrollView,
-  Alert,
-  Animated,
-  Dimensions
-} from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
+import { useEffect, useRef, useState } from 'react';
+import {
+    Alert,
+    Animated,
+    Dimensions,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View,
+    Modal
+} from 'react-native';
+import { useSoundManager } from '../../hooks/useSoundManager';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const { width } = Dimensions.get('window');
 
 export default function SettingsScreen() {
   const router = useRouter();
+  const soundManager = useSoundManager();
   
-  // Состояния настроек
+  // Локальное состояние для настроек
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [vibrationEnabled, setVibrationEnabled] = useState(true);
-  const [notificationsEnabled, setNotificationsEnabled] = useState(true);
   const [difficulty, setDifficulty] = useState<'easy' | 'medium' | 'hard'>('medium');
+  const [notificationsEnabled, setNotificationsEnabled] = useState(true);
+  const [activeTab, setActiveTab] = useState<'sound' | 'difficulty' | null>(null);
 
   // Анимации
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(30)).current;
   const scaleAnim = useRef(new Animated.Value(0.9)).current;
+  const modalAnim = useRef(new Animated.Value(0)).current;
 
+  // Загрузка настроек при монтировании
   useEffect(() => {
-    // Запускаем анимации при монтировании
+    loadSettings();
+    
+    // Запускаем анимации
     Animated.parallel([
       Animated.timing(fadeAnim, {
         toValue: 1,
@@ -54,10 +62,119 @@ export default function SettingsScreen() {
     ]).start();
   }, []);
 
+  // Загрузка настроек из AsyncStorage
+  const loadSettings = async () => {
+    try {
+      const [
+        soundSetting,
+        vibrationSetting,
+        difficultySetting,
+        notificationsSetting
+      ] = await Promise.all([
+        AsyncStorage.getItem('soundEnabled'),
+        AsyncStorage.getItem('vibrationEnabled'),
+        AsyncStorage.getItem('difficulty'),
+        AsyncStorage.getItem('notificationsEnabled')
+      ]);
+
+      if (soundSetting !== null) setSoundEnabled(JSON.parse(soundSetting));
+      if (vibrationSetting !== null) setVibrationEnabled(JSON.parse(vibrationSetting));
+      if (difficultySetting !== null) setDifficulty(difficultySetting as 'easy' | 'medium' | 'hard');
+      if (notificationsSetting !== null) setNotificationsEnabled(JSON.parse(notificationsSetting));
+    } catch (error) {
+      console.error('Ошибка загрузки настроек:', error);
+    }
+  };
+
+  // Сохранение настроек в AsyncStorage
+  const saveSettingsToStorage = async () => {
+    try {
+      await Promise.all([
+        AsyncStorage.setItem('soundEnabled', JSON.stringify(soundEnabled)),
+        AsyncStorage.setItem('vibrationEnabled', JSON.stringify(vibrationEnabled)),
+        AsyncStorage.setItem('difficulty', difficulty),
+        AsyncStorage.setItem('notificationsEnabled', JSON.stringify(notificationsEnabled))
+      ]);
+      console.log('Настройки сохранены в хранилище');
+    } catch (error) {
+      console.error('Ошибка сохранения настроек:', error);
+    }
+  };
+
+  /**
+   * Открытие мини-меню
+   */
+  const openMiniMenu = (tab: 'sound' | 'difficulty') => {
+    setActiveTab(tab);
+    Animated.timing(modalAnim, {
+      toValue: 1,
+      duration: 300,
+      useNativeDriver: true,
+    }).start();
+  };
+
+  /**
+   * Закрытие мини-меню
+   */
+  const closeMiniMenu = () => {
+    Animated.timing(modalAnim, {
+      toValue: 0,
+      duration: 200,
+      useNativeDriver: true,
+    }).start(() => {
+      setActiveTab(null);
+    });
+  };
+
+  /**
+   * Переключение звука с немедленным применением
+   */
+  const toggleSoundImmediate = async () => {
+    const newValue = !soundEnabled;
+    setSoundEnabled(newValue);
+    
+    // Немедленно сохраняем настройку звука
+    try {
+      await AsyncStorage.setItem('soundEnabled', JSON.stringify(newValue));
+      console.log('Настройка звука немедленно сохранена:', newValue);
+    } catch (error) {
+      console.error('Ошибка сохранения настройки звука:', error);
+    }
+  };
+
+  /**
+   * Переключение вибрации с немедленным применением
+   */
+  const toggleVibrationImmediate = async () => {
+    const newValue = !vibrationEnabled;
+    setVibrationEnabled(newValue);
+    
+    try {
+      await AsyncStorage.setItem('vibrationEnabled', JSON.stringify(newValue));
+      console.log('Настройка вибрации немедленно сохранена:', newValue);
+    } catch (error) {
+      console.error('Ошибка сохранения настройки вибрации:', error);
+    }
+  };
+
+  /**
+   * Установка сложности с немедленным применением
+   */
+  const setDifficultyImmediate = async (level: 'easy' | 'medium' | 'hard') => {
+    setDifficulty(level);
+    
+    try {
+      await AsyncStorage.setItem('difficulty', level);
+      console.log('Настройка сложности немедленно сохранена:', level);
+    } catch (error) {
+      console.error('Ошибка сохранения настройки сложности:', error);
+    }
+  };
+
   /**
    * Сохранение настроек с анимацией
    */
-  const saveSettings = () => {
+  const saveSettings = async () => {
     // Анимация успешного сохранения
     Animated.sequence([
       Animated.timing(scaleAnim, {
@@ -72,25 +189,57 @@ export default function SettingsScreen() {
       }),
     ]).start();
 
+    // Сохраняем все настройки (на всякий случай)
+    await saveSettingsToStorage();
+    
+    // Воспроизводим звук только если звук включен
+    // Используем прямое воспроизведение без хука
+    await playButtonSoundSafe();
+    
     Alert.alert('⚓ Настройки сохранены', 'Ваши настройки успешно применены для флота!');
   };
 
-  // Анимированный переключатель
-  const AnimatedSwitch = ({ value, onValueChange, icon, text }: any) => {
-    const switchAnim = useRef(new Animated.Value(value ? 1 : 0)).current;
+  /**
+   * Безопасное воспроизведение звука кнопки
+   */
+  const playButtonSoundSafe = async () => {
+    if (soundEnabled && soundManager.playButtonSound) {
+      await soundManager.playButtonSound();
+    }
+  };
 
-    const handleToggle = (newValue: boolean) => {
-      Animated.spring(switchAnim, {
-        toValue: newValue ? 1 : 0,
-        useNativeDriver: false,
-      }).start();
-      onValueChange(newValue);
+  // Компонент настройки с мини-меню
+  const SettingWithMiniMenu = ({ 
+    icon, 
+    text, 
+    value, 
+    type,
+  }: {
+    icon: string;
+    text: string;
+    value: any;
+    type: 'sound' | 'difficulty';
+  }) => {
+    const getDisplayValue = () => {
+      if (type === 'sound') {
+        return value ? 'ВКЛ' : 'ВЫКЛ';
+      } else if (type === 'difficulty') {
+        const difficultyLabels = {
+          easy: 'ШТУРМАН',
+          medium: 'КАПИТАН',
+          hard: 'АДМИРАЛ'
+        };
+        return difficultyLabels[value as keyof typeof difficultyLabels];
+      }
+      return value;
     };
 
-    const backgroundColor = switchAnim.interpolate({
-      inputRange: [0, 1],
-      outputRange: ['#6B7280', '#10B981']
-    });
+    const getStatusColor = () => {
+      if (type === 'sound') {
+        return value ? '#10B981' : '#EF4444';
+      }
+      return '#60A5FA';
+    };
 
     return (
       <Animated.View style={[styles.settingItem, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}>
@@ -98,81 +247,235 @@ export default function SettingsScreen() {
           <Ionicons name={icon} size={24} color="#60A5FA" />
           <Text style={styles.settingText}>{text}</Text>
         </View>
+        
         <TouchableOpacity 
-          style={styles.switchContainer}
-          onPress={() => handleToggle(!value)}
+          style={[styles.miniMenuTrigger, { backgroundColor: getStatusColor() + '20' }]}
+          onPress={() => openMiniMenu(type)}
           activeOpacity={0.7}
         >
-          <Animated.View style={[styles.switchTrack, { backgroundColor }]}>
-            <Animated.View 
-              style={[
-                styles.switchThumb,
-                {
-                  transform: [{
-                    translateX: switchAnim.interpolate({
-                      inputRange: [0, 1],
-                      outputRange: [2, 22]
-                    })
-                  }]
-                }
-              ]} 
-            />
-          </Animated.View>
+          <Text style={[styles.miniMenuTriggerText, { color: getStatusColor() }]}>
+            {getDisplayValue()}
+          </Text>
+          <Ionicons name="chevron-down" size={16} color={getStatusColor()} />
         </TouchableOpacity>
       </Animated.View>
     );
   };
 
-  // Анимированная кнопка сложности
-  const DifficultyButton = ({ level, label, isActive, onPress }: any) => {
-    const buttonScale = useRef(new Animated.Value(1)).current;
+  // Мини-меню для настроек
+  const MiniMenuModal = () => {
+    if (!activeTab) return null;
 
-    const handlePressIn = () => {
-      Animated.spring(buttonScale, {
-        toValue: 0.95,
-        useNativeDriver: true,
-      }).start();
-    };
+    const modalTranslateY = modalAnim.interpolate({
+      inputRange: [0, 1],
+      outputRange: [300, 0]
+    });
 
-    const handlePressOut = () => {
-      Animated.spring(buttonScale, {
-        toValue: 1,
-        useNativeDriver: true,
-      }).start();
-    };
+    const modalOpacity = modalAnim.interpolate({
+      inputRange: [0, 1],
+      outputRange: [0, 1]
+    });
 
     return (
-      <TouchableOpacity
-        onPress={onPress}
-        onPressIn={handlePressIn}
-        onPressOut={handlePressOut}
-        activeOpacity={0.8}
+      <Modal
+        visible={!!activeTab}
+        transparent
+        animationType="none"
+        onRequestClose={closeMiniMenu}
       >
-        <Animated.View
-          style={[
-            styles.difficultyButton,
-            isActive && styles.difficultyButtonActive,
-            { transform: [{ scale: buttonScale }] }
-          ]}
+        <TouchableOpacity 
+          style={styles.modalOverlay}
+          activeOpacity={1}
+          onPress={closeMiniMenu}
         >
-          <LinearGradient
-            colors={isActive ? ['#10B981', '#059669'] : ['rgba(30, 41, 59, 0.6)', 'rgba(30, 41, 59, 0.4)']}
-            style={styles.difficultyButtonGradient}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
+          <Animated.View 
+            style={[
+              styles.modalContent,
+              {
+                opacity: modalOpacity,
+                transform: [{ translateY: modalTranslateY }]
+              }
+            ]}
           >
-            <Text style={[
-              styles.difficultyButtonText,
-              isActive && styles.difficultyButtonTextActive
-            ]}>
-              {label}
-            </Text>
-            {isActive && (
-              <Ionicons name="checkmark-circle" size={16} color="#fff" style={styles.checkIcon} />
-            )}
-          </LinearGradient>
-        </Animated.View>
-      </TouchableOpacity>
+            <BlurView intensity={30} tint="dark" style={styles.modalBlurContainer}>
+              {/* Заголовок мини-меню */}
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>
+                  {activeTab === 'sound' ? '⚓ НАСТРОЙКИ ЗВУКА' : '🎯 УРОВЕНЬ СЛОЖНОСТИ'}
+                </Text>
+                <TouchableOpacity onPress={closeMiniMenu} style={styles.closeButton}>
+                  <Ionicons name="close" size={24} color="#9CA3AF" />
+                </TouchableOpacity>
+              </View>
+
+              {/* Контент мини-меню */}
+              <View style={styles.modalBody}>
+                {activeTab === 'sound' && (
+                  <View style={styles.soundOptions}>
+                    <TouchableOpacity 
+                      style={[
+                        styles.optionButton,
+                        soundEnabled && styles.optionButtonActive
+                      ]}
+                      onPress={() => {
+                        toggleSoundImmediate();
+                        closeMiniMenu();
+                      }}
+                    >
+                      <LinearGradient
+                        colors={soundEnabled ? ['#10B981', '#059669'] : ['rgba(30, 41, 59, 0.6)', 'rgba(30, 41, 59, 0.4)']}
+                        style={styles.optionButtonGradient}
+                      >
+                        <Ionicons 
+                          name="volume-high" 
+                          size={24} 
+                          color={soundEnabled ? '#fff' : '#9CA3AF'} 
+                        />
+                        <Text style={[
+                          styles.optionButtonText,
+                          soundEnabled && styles.optionButtonTextActive
+                        ]}>
+                          ЗВУК ВКЛЮЧЕН
+                        </Text>
+                        {soundEnabled && (
+                          <Ionicons name="checkmark-circle" size={20} color="#fff" />
+                        )}
+                      </LinearGradient>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity 
+                      style={[
+                        styles.optionButton,
+                        !soundEnabled && styles.optionButtonActive
+                      ]}
+                      onPress={() => {
+                        toggleSoundImmediate();
+                        closeMiniMenu();
+                      }}
+                    >
+                      <LinearGradient
+                        colors={!soundEnabled ? ['#EF4444', '#DC2626'] : ['rgba(30, 41, 59, 0.6)', 'rgba(30, 41, 59, 0.4)']}
+                        style={styles.optionButtonGradient}
+                      >
+                        <Ionicons 
+                          name="volume-mute" 
+                          size={24} 
+                          color={!soundEnabled ? '#fff' : '#9CA3AF'} 
+                        />
+                        <Text style={[
+                          styles.optionButtonText,
+                          !soundEnabled && styles.optionButtonTextActive
+                        ]}>
+                          ЗВУК ВЫКЛЮЧЕН
+                        </Text>
+                        {!soundEnabled && (
+                          <Ionicons name="checkmark-circle" size={20} color="#fff" />
+                        )}
+                      </LinearGradient>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity 
+                      style={[
+                        styles.optionButton,
+                        styles.vibrationOption,
+                        vibrationEnabled && styles.optionButtonActive
+                      ]}
+                      onPress={() => {
+                        toggleVibrationImmediate();
+                      }}
+                    >
+                      <View style={styles.vibrationOptionContent}>
+                        <Ionicons 
+                          name="vibrate" 
+                          size={24} 
+                          color={vibrationEnabled ? '#F59E0B' : '#9CA3AF'} 
+                        />
+                        <View style={styles.vibrationTextContainer}>
+                          <Text style={[
+                            styles.optionButtonText,
+                            vibrationEnabled && styles.optionButtonTextActive
+                          ]}>
+                            ВИБРАЦИЯ
+                          </Text>
+                          <Text style={styles.optionSubtext}>
+                            {vibrationEnabled ? 'Активна' : 'Неактивна'}
+                          </Text>
+                        </View>
+                        <View style={[
+                          styles.vibrationIndicator,
+                          vibrationEnabled && styles.vibrationIndicatorActive
+                        ]}>
+                          <Ionicons 
+                            name="checkmark" 
+                            size={16} 
+                            color={vibrationEnabled ? '#fff' : 'transparent'} 
+                          />
+                        </View>
+                      </View>
+                    </TouchableOpacity>
+                  </View>
+                )}
+
+                {activeTab === 'difficulty' && (
+                  <View style={styles.difficultyOptions}>
+                    {[
+                      { level: 'easy', label: 'ШТУРМАН', icon: 'compass', description: 'Для новичков' },
+                      { level: 'medium', label: 'КАПИТАН', icon: 'boat', description: 'Стандартный бой' },
+                      { level: 'hard', label: 'АДМИРАЛ', icon: 'trophy', description: 'Экспертный уровень' }
+                    ].map((item) => (
+                      <TouchableOpacity 
+                        key={item.level}
+                        style={[
+                          styles.difficultyOption,
+                          difficulty === item.level && styles.difficultyOptionActive
+                        ]}
+                        onPress={() => {
+                          setDifficultyImmediate(item.level as any);
+                          closeMiniMenu();
+                        }}
+                      >
+                        <LinearGradient
+                          colors={difficulty === item.level ? 
+                            ['#8B5CF6', '#7C3AED'] : 
+                            ['rgba(30, 41, 59, 0.6)', 'rgba(30, 41, 59, 0.4)']
+                          }
+                          style={styles.difficultyOptionGradient}
+                        >
+                          <View style={styles.difficultyOptionHeader}>
+                            <Ionicons 
+                              name={item.icon as any} 
+                              size={28} 
+                              color={difficulty === item.level ? '#fff' : '#8B5CF6'} 
+                            />
+                            <View style={styles.difficultyTextContainer}>
+                              <Text style={[
+                                styles.difficultyOptionLabel,
+                                difficulty === item.level && styles.difficultyOptionLabelActive
+                              ]}>
+                                {item.label}
+                              </Text>
+                              <Text style={styles.difficultyOptionDescription}>
+                                {item.description}
+                              </Text>
+                            </View>
+                          </View>
+                          
+                          {difficulty === item.level && (
+                            <View style={styles.selectedBadge}>
+                              <Ionicons name="checkmark-circle" size={20} color="#fff" />
+                              <Text style={styles.selectedBadgeText}>ВЫБРАНО</Text>
+                            </View>
+                          )}
+                        </LinearGradient>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                )}
+              </View>
+            </BlurView>
+          </Animated.View>
+        </TouchableOpacity>
+      </Modal>
     );
   };
 
@@ -217,23 +520,23 @@ export default function SettingsScreen() {
           <BlurView intensity={20} tint="dark" style={styles.blurContainer}>
             <Text style={styles.sectionTitle}>⚓ ЗВУК И СИГНАЛЫ</Text>
             
-            <AnimatedSwitch
-              value={soundEnabled}
-              onValueChange={setSoundEnabled}
+            <SettingWithMiniMenu
               icon="volume-high"
               text="Звуковые сигналы"
+              value={soundEnabled}
+              type="sound"
             />
 
-            <AnimatedSwitch
-              value={vibrationEnabled}
-              onValueChange={setVibrationEnabled}
-              icon="vibrate"
-              text="Вибрация корабля"
+            <SettingWithMiniMenu
+              icon="trophy"
+              text="Уровень сложности"
+              value={difficulty}
+              type="difficulty"
             />
           </BlurView>
         </Animated.View>
 
-        {/* Настройки игры */}
+        {/* Другие настройки */}
         <Animated.View 
           style={[
             styles.section,
@@ -244,42 +547,25 @@ export default function SettingsScreen() {
           ]}
         >
           <BlurView intensity={20} tint="dark" style={styles.blurContainer}>
-            <Text style={styles.sectionTitle}>🎯 СЛОЖНОСТЬ БОЯ</Text>
+            <Text style={styles.sectionTitle}>🔔 УВЕДОМЛЕНИЯ</Text>
             
-            <AnimatedSwitch
-              value={notificationsEnabled}
-              onValueChange={setNotificationsEnabled}
-              icon="notifications"
-              text="Боевые уведомления"
-            />
-
-            <Animated.View 
-              style={[styles.settingItem, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}
-            >
+            <Animated.View style={[styles.settingItem, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}>
               <View style={styles.settingInfo}>
-                <Ionicons name="trophy" size={24} color="#F59E0B" />
-                <Text style={styles.settingText}>Уровень сложности</Text>
+                <Ionicons name="notifications" size={24} color="#60A5FA" />
+                <Text style={styles.settingText}>Боевые уведомления</Text>
               </View>
-              <View style={styles.difficultyButtons}>
-                <DifficultyButton
-                  level="easy"
-                  label="ШТУРМАН"
-                  isActive={difficulty === 'easy'}
-                  onPress={() => setDifficulty('easy')}
-                />
-                <DifficultyButton
-                  level="medium"
-                  label="КАПИТАН"
-                  isActive={difficulty === 'medium'}
-                  onPress={() => setDifficulty('medium')}
-                />
-                <DifficultyButton
-                  level="hard"
-                  label="АДМИРАЛ"
-                  isActive={difficulty === 'hard'}
-                  onPress={() => setDifficulty('hard')}
-                />
-              </View>
+              <TouchableOpacity 
+                style={[
+                  styles.simpleSwitch,
+                  notificationsEnabled && styles.simpleSwitchActive
+                ]}
+                onPress={() => setNotificationsEnabled(!notificationsEnabled)}
+              >
+                <View style={[
+                  styles.simpleSwitchThumb,
+                  notificationsEnabled && styles.simpleSwitchThumbActive
+                ]} />
+              </TouchableOpacity>
             </Animated.View>
           </BlurView>
         </Animated.View>
@@ -354,30 +640,10 @@ export default function SettingsScreen() {
             </View>
           </BlurView>
         </Animated.View>
-
-        {/* Дополнительные действия */}
-        <Animated.View 
-          style={[
-            styles.actionsContainer,
-            { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }
-          ]}
-        >
-          <TouchableOpacity style={styles.actionButton}>
-            <Ionicons name="help-circle" size={20} color="#60A5FA" />
-            <Text style={styles.actionButtonText}>Помощь</Text>
-          </TouchableOpacity>
-          
-          <TouchableOpacity style={styles.actionButton}>
-            <Ionicons name="shield-checkmark" size={20} color="#10B981" />
-            <Text style={styles.actionButtonText}>Безопасность</Text>
-          </TouchableOpacity>
-          
-          <TouchableOpacity style={styles.actionButton}>
-            <Ionicons name="star" size={20} color="#F59E0B" />
-            <Text style={styles.actionButtonText}>Оценить</Text>
-          </TouchableOpacity>
-        </Animated.View>
       </ScrollView>
+
+      {/* Мини-меню */}
+      <MiniMenuModal />
     </LinearGradient>
   );
 }
@@ -392,6 +658,7 @@ const styles = StyleSheet.create({
   scrollContent: {
     padding: 20,
     paddingTop: 40,
+    paddingBottom: 110,
   },
   header: {
     alignItems: 'center',
@@ -461,17 +728,198 @@ const styles = StyleSheet.create({
     color: '#E5E7EB',
     fontWeight: '600',
   },
-  switchContainer: {
+  miniMenuTrigger: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(96, 165, 250, 0.3)',
+  },
+  miniMenuTriggerText: {
+    fontSize: 14,
+    fontWeight: '700',
+    letterSpacing: 0.5,
+  },
+  // Стили для мини-меню
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    justifyContent: 'flex-end',
+  },
+  modalContent: {
+    borderTopLeftRadius: 30,
+    borderTopRightRadius: 30,
+    overflow: 'hidden',
+    maxHeight: '70%',
+  },
+  modalBlurContainer: {
+    padding: 24,
+    paddingBottom: 40,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 24,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: '800',
+    color: '#fff',
+    letterSpacing: 1,
+  },
+  closeButton: {
     padding: 4,
   },
-  switchTrack: {
+  modalBody: {
+    gap: 12,
+  },
+  // Стили для опций звука
+  soundOptions: {
+    gap: 12,
+  },
+  optionButton: {
+    borderRadius: 16,
+    overflow: 'hidden',
+    borderWidth: 2,
+    borderColor: 'rgba(96, 165, 250, 0.2)',
+  },
+  optionButtonActive: {
+    borderColor: 'rgba(255, 255, 255, 0.3)',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  optionButtonGradient: {
+    paddingVertical: 20,
+    paddingHorizontal: 24,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  optionButtonText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#9CA3AF',
+    letterSpacing: 0.5,
+  },
+  optionButtonTextActive: {
+    color: '#fff',
+  },
+  vibrationOption: {
+    marginTop: 8,
+  },
+  vibrationOptionContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 20,
+    paddingHorizontal: 24,
+  },
+  vibrationTextContainer: {
+    flex: 1,
+    marginLeft: 16,
+  },
+  optionSubtext: {
+    fontSize: 12,
+    color: '#6B7280',
+    marginTop: 2,
+  },
+  vibrationIndicator: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: 'rgba(107, 114, 128, 0.3)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  vibrationIndicatorActive: {
+    backgroundColor: '#F59E0B',
+  },
+  // Стили для опций сложности
+  difficultyOptions: {
+    gap: 12,
+  },
+  difficultyOption: {
+    borderRadius: 16,
+    overflow: 'hidden',
+    borderWidth: 2,
+    borderColor: 'rgba(139, 92, 246, 0.2)',
+  },
+  difficultyOptionActive: {
+    borderColor: 'rgba(139, 92, 246, 0.5)',
+    shadowColor: '#8B5CF6',
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  difficultyOptionGradient: {
+    padding: 20,
+  },
+  difficultyOptionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  difficultyTextContainer: {
+    flex: 1,
+    marginLeft: 16,
+  },
+  difficultyOptionLabel: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#8B5CF6',
+    letterSpacing: 0.8,
+  },
+  difficultyOptionLabelActive: {
+    color: '#fff',
+  },
+  difficultyOptionDescription: {
+    fontSize: 12,
+    color: '#9CA3AF',
+    marginTop: 2,
+  },
+  selectedBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+    alignSelf: 'flex-start',
+  },
+  selectedBadgeText: {
+    fontSize: 10,
+    color: '#fff',
+    fontWeight: '700',
+    letterSpacing: 0.5,
+  },
+  // Простой переключатель для уведомлений
+  simpleSwitch: {
     width: 50,
     height: 28,
     borderRadius: 14,
-    justifyContent: 'center',
+    backgroundColor: '#6B7280',
     padding: 2,
+    justifyContent: 'center',
   },
-  switchThumb: {
+  simpleSwitchActive: {
+    backgroundColor: '#10B981',
+  },
+  simpleSwitchThumb: {
     width: 24,
     height: 24,
     borderRadius: 12,
@@ -485,51 +933,8 @@ const styles = StyleSheet.create({
     shadowRadius: 3,
     elevation: 3,
   },
-  difficultyButtons: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  difficultyButton: {
-    borderRadius: 12,
-    overflow: 'hidden',
-    minWidth: 80,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 4,
-  },
-  difficultyButtonGradient: {
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  difficultyButtonActive: {
-    shadowColor: '#10B981',
-    shadowOffset: {
-      width: 0,
-      height: 4,
-    },
-    shadowOpacity: 0.5,
-    shadowRadius: 8,
-    elevation: 8,
-  },
-  difficultyButtonText: {
-    fontSize: 12,
-    color: '#9CA3AF',
-    fontWeight: '700',
-    letterSpacing: 0.5,
-  },
-  difficultyButtonTextActive: {
-    color: '#fff',
-  },
-  checkIcon: {
-    marginLeft: 4,
+  simpleSwitchThumbActive: {
+    alignSelf: 'flex-end',
   },
   saveButtonContainer: {
     marginVertical: 24,
@@ -586,27 +991,5 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontWeight: '700',
     marginTop: 4,
-  },
-  actionsContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    marginTop: 20,
-    marginBottom: 40,
-  },
-  actionButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    backgroundColor: 'rgba(30, 41, 59, 0.6)',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: 'rgba(96, 165, 250, 0.2)',
-  },
-  actionButtonText: {
-    color: '#E5E7EB',
-    fontSize: 14,
-    fontWeight: '600',
   },
 });

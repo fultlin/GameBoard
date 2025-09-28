@@ -1,9 +1,9 @@
-import { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, FlatList, Alert, RefreshControl } from 'react-native';
-import { useRouter } from 'expo-router';
+import { API_BASE_URL } from '@/app/config';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { API_BASE_URL } from '@/app/config';
+import { useRouter } from 'expo-router';
+import { useEffect, useState } from 'react';
+import { Alert, FlatList, RefreshControl, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 interface Lobby {
   id: number;
@@ -175,6 +175,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     padding: 20,
+    paddingBottom: 110, // 20 + 90 для отступа от нижнего меню
     backgroundColor: '#f5f5f5',
   },
   centerContainer: {
