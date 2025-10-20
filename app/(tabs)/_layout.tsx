@@ -146,13 +146,13 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="lobby"
+        name="lobby/index"
         options={{
-          title: 'ФЛОТИЛИЯ',
+          title: 'Лобби',
           tabBarIcon: ({ color, size, focused }) => (
             <TabIcon name="people" color={color} size={size} focused={focused} />
           ),
-          headerTitle: '⚓ ФЛОТИЛИЯ КОРАБЛЕЙ',
+          headerTitle: '⚓ Лобби',
         }}
       />
       <Tabs.Screen

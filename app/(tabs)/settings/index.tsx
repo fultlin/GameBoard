@@ -1,4 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
@@ -7,15 +8,14 @@ import {
     Alert,
     Animated,
     Dimensions,
+    Modal,
     ScrollView,
     StyleSheet,
     Text,
     TouchableOpacity,
-    View,
-    Modal
+    View
 } from 'react-native';
 import { useSoundManager } from '../../hooks/useSoundManager';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const { width } = Dimensions.get('window');
 
@@ -419,9 +419,27 @@ export default function SettingsScreen() {
                 {activeTab === 'difficulty' && (
                   <View style={styles.difficultyOptions}>
                     {[
-                      { level: 'easy', label: 'ШТУРМАН', icon: 'compass', description: 'Для новичков' },
-                      { level: 'medium', label: 'КАПИТАН', icon: 'boat', description: 'Стандартный бой' },
-                      { level: 'hard', label: 'АДМИРАЛ', icon: 'trophy', description: 'Экспертный уровень' }
+                      { 
+                        level: 'easy', 
+                        label: 'ШТУРМАН', 
+                        icon: 'compass', 
+                        description: 'Для новичков',
+                        features: ['Случайные выстрелы', 'Медленная реакция', '30% точность']
+                      },
+                      { 
+                        level: 'medium', 
+                        label: 'КАПИТАН', 
+                        icon: 'boat', 
+                        description: 'Стандартный бой',
+                        features: ['Умная охота', 'Шахматный паттерн', '60% точность']
+                      },
+                      { 
+                        level: 'hard', 
+                        label: 'АДМИРАЛ', 
+                        icon: 'trophy', 
+                        description: 'Экспертный уровень',
+                        features: ['Адаптивная стратегия', 'Анализ паттернов', '85% точность']
+                      }
                     ].map((item) => (
                       <TouchableOpacity 
                         key={item.level}
@@ -458,6 +476,25 @@ export default function SettingsScreen() {
                                 {item.description}
                               </Text>
                             </View>
+                          </View>
+                          
+                          {/* Особенности уровня сложности */}
+                          <View style={styles.difficultyFeatures}>
+                            {item.features.map((feature, index) => (
+                              <View key={index} style={styles.featureItem}>
+                                <Ionicons 
+                                  name="checkmark-circle" 
+                                  size={14} 
+                                  color={difficulty === item.level ? '#10B981' : '#8B5CF6'} 
+                                />
+                                <Text style={[
+                                  styles.featureText,
+                                  difficulty === item.level && styles.featureTextActive
+                                ]}>
+                                  {feature}
+                                </Text>
+                              </View>
+                            ))}
                           </View>
                           
                           {difficulty === item.level && (
@@ -906,6 +943,24 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontWeight: '700',
     letterSpacing: 0.5,
+  },
+  // Стили для особенностей сложности
+  difficultyFeatures: {
+    marginTop: 12,
+    gap: 6,
+  },
+  featureItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  featureText: {
+    fontSize: 12,
+    color: '#8B5CF6',
+    fontWeight: '500',
+  },
+  featureTextActive: {
+    color: '#fff',
   },
   // Простой переключатель для уведомлений
   simpleSwitch: {

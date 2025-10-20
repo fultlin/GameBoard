@@ -1,33 +1,34 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useCallback, useRef, useState } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
-  Alert,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
+    Alert,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View,
 } from 'react-native';
 import GameBoard from '../../../components/GameBoard';
 import { VictoryScreen } from '../../../components/VictoryScreen';
 import { useSoundManager } from '../../hooks/useSoundManager';
 import {
-  GameState,
-  SHIP_CONFIGS,
-  ShipOrientation,
-  ShipType
+    GameState,
+    SHIP_CONFIGS,
+    ShipOrientation,
+    ShipType
 } from '../../types/game';
-import { createAIState, executeAIShot } from '../../utils/ai';
+import { createAIWithDifficulty, DifficultyLevel, executeAIShot } from '../../utils/ai';
 import {
-  areAllCellsShot,
-  areAllShipsSunk,
-  autoPlaceShips,
-  canPlaceShip,
-  createEmptyGameBoard,
-  createShip,
-  isPlacementComplete,
-  makeShot,
-  placeShip
+    areAllCellsShot,
+    areAllShipsSunk,
+    autoPlaceShips,
+    canPlaceShip,
+    createEmptyGameBoard,
+    createShip,
+    isPlacementComplete,
+    makeShot,
+    placeShip
 } from '../../utils/gameLogic';
 
 /**
@@ -51,19 +52,44 @@ export default function GameScreen() {
   const [selectedShip, setSelectedShip] = useState<ShipType | null>(null);
   const [shipOrientation, setShipOrientation] = useState<ShipOrientation>('horizontal');
   
+  // Настройка сложности
+  const [difficulty, setDifficulty] = useState<DifficultyLevel>('medium');
+  
   // Используем useRef для aiState чтобы избежать проблем с замыканиями
-  const aiStateRef = useRef(createAIState());
+  const aiStateRef = useRef(createAIWithDifficulty('medium'));
   const [showVictoryScreen, setShowVictoryScreen] = useState(false);
   const [victoryType, setVictoryType] = useState<'victory' | 'defeat'>('victory');
 
   // Звуковой менеджер
   const soundManager = useSoundManager();
 
+  // Загрузка настройки сложности при монтировании
+  useEffect(() => {
+    loadDifficultySetting();
+  }, []);
+
+  /**
+   * Загружает настройку сложности из AsyncStorage
+   */
+  const loadDifficultySetting = async () => {
+    try {
+      const difficultySetting = await AsyncStorage.getItem('difficulty');
+      if (difficultySetting) {
+        const loadedDifficulty = difficultySetting as DifficultyLevel;
+        setDifficulty(loadedDifficulty);
+        // Обновляем состояние ИИ с новой сложностью
+        aiStateRef.current = createAIWithDifficulty(loadedDifficulty);
+      }
+    } catch (error) {
+      console.error('Ошибка загрузки настройки сложности:', error);
+    }
+  };
+
   /**
    * Сброс состояния ИИ
    */
   const resetAIState = () => {
-    aiStateRef.current = createAIState();
+    aiStateRef.current = createAIWithDifficulty(difficulty);
   };
 
   /**
@@ -122,9 +148,9 @@ export default function GameScreen() {
   const autoPlacePlayerShips = async () => {
     try {
       const newPlayerBoard = autoPlaceShips();
-      
       // Сбрасываем состояние ИИ
       resetAIState();
+      startNewGame()
       
       setGameState(prev => ({
         ...prev,
@@ -147,7 +173,6 @@ export default function GameScreen() {
     if (gameState.gamePhase !== 'placement') return;
     if (!selectedShip) {
       await soundManager.playMissSound();
-      Alert.alert('Выберите корабль', 'Сначала выберите корабль для размещения');
       return;
     }
 
@@ -233,22 +258,12 @@ const handlePlayerShot = async (row: number, col: number) => {
           return;
         }
 
-        // Показываем alert, но игрок продолжает ход
-        if (result.sunk) {
-          Alert.alert('Корабль потоплен!', `${result.ship?.type || 'Корабль'} потоплен!`);
-        } else {
-          Alert.alert('Попадание!', 'Отличный выстрел!');
-        }
-        
         setGameState(newGameState);
         
       } else {
         // Промах - передаем ход компьютеру
         newGameState.currentPlayer = 'computer';
         setGameState(newGameState);
-        Alert.alert('Промах', 'Ход переходит к компьютеру');
-        
-        // Ход компьютера с небольшой задержкой
         setTimeout(() => {
           executeComputerTurn();
         }, 1000);
@@ -310,22 +325,12 @@ const executeComputerTurn = useCallback(async () => {
             return;
           }
 
-          // Показываем alert и продолжаем ход компьютера
-          if (result.sunk) {
-            Alert.alert('Ваш корабль потоплен!', `Компьютер потопил ваш ${result.ship?.type || 'корабль'}!`);
-          } else {
-            Alert.alert('Попадание компьютера', 'Компьютер попал по вашему кораблю!');
-          }
-
           // Продолжаем ход компьютера после задержки
           setTimeout(() => {
             executeComputerTurn();
           }, 1500);
           
-        } else {
-          // Промах - передаем ход игроку
-          Alert.alert('Промах компьютера', 'Ваш ход!');
-        }
+        } 
       } catch (error) {
         console.error('Ошибка при обработке выстрела компьютера:', error);
         // В случае ошибки передаем ход игроку
@@ -361,6 +366,9 @@ const executeComputerTurn = useCallback(async () => {
     <View style={styles.container}>
       <ScrollView style={styles.scrollContainer}>
         <Text style={styles.title}>⚓ Морской бой</Text>
+        <Text style={styles.difficultyText}>
+          Сложность: {difficulty === 'easy' ? 'ШТУРМАН' : difficulty === 'medium' ? 'КАПИТАН' : 'АДМИРАЛ'}
+        </Text>
 
         {/* Управление игрой */}
         <View style={styles.controlPanel}>
@@ -507,6 +515,18 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginVertical: 16,
     color: '#1E3A8A',
+  },
+  difficultyText: {
+    fontSize: 16,
+    fontWeight: '600',
+    textAlign: 'center',
+    marginBottom: 16,
+    color: '#7C3AED',
+    backgroundColor: '#F3E8FF',
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 20,
+    alignSelf: 'center',
   },
   controlPanel: {
     flexDirection: 'row',
