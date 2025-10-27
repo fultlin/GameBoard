@@ -3,12 +3,10 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 from app.database import engine, get_db
-from app.api import auth, lobby
+from app.api import auth, lobby, users 
 from app.database import Base
 
 Base.metadata.create_all(bind=engine)
-
-Base.metadata.drop_all(bind=engine)
 Base.metadata.create_all(bind=engine)
 
 class CustomJSONResponse(JSONResponse):
@@ -37,6 +35,7 @@ async def add_charset_header(request, call_next):
     return response
 
 app.include_router(auth.router)
+app.include_router(users.router)
 app.include_router(lobby.router)
 
 router = APIRouter()

@@ -1,6 +1,6 @@
 from pydantic import BaseModel, EmailStr
 from datetime import datetime
-from typing import Optional
+from typing import Optional, List
 
 class UserBase(BaseModel):
     username: str
@@ -9,13 +9,29 @@ class UserBase(BaseModel):
 class UserCreate(UserBase):
     password: str
 
+class UserLogin(BaseModel):
+    username: str
+    password: str
+    
 class User(UserBase):
     id: int
     created_at: datetime
     is_active: bool
+    last_seen: datetime  
     
     class Config:
-        orm_mode = True
+        from_attributes = True
+
+class UserWithOnline(User):
+    is_online: bool
+
+class UsersListResponse(BaseModel):
+    users: List[UserWithOnline]
+    total_count: int
+    online_count: int
+
+class UserStatusUpdate(BaseModel):
+    last_seen: datetime
 
 class LobbyBase(BaseModel):
     name: str
