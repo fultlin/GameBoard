@@ -1,3 +1,4 @@
+// app/(auth)/login.tsx
 import { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert } from 'react-native';
 import { useRouter } from 'expo-router';
@@ -19,12 +20,15 @@ export default function LoginScreen() {
 
     setLoading(true);
     try {
-      const response = await fetch(`${API_BASE_URL}/api/auth/login`, {
+      const response = await fetch(`${API_BASE_URL}/api/auth/login-json`, {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
+          'Content-Type': 'application/json',
         },
-        body: `username=${encodeURIComponent(username)}&password=${encodeURIComponent(password)}`,
+        body: JSON.stringify({
+          username: username,
+          password: password
+        }),
       });
 
       if (response.ok) {
@@ -33,9 +37,11 @@ export default function LoginScreen() {
         Alert.alert('Успех', 'Вход выполнен!');
         router.replace('/(tabs)/lobby');
       } else {
-        Alert.alert('Ошибка', 'Неверное имя пользователя или пароль');
+        const errorData = await response.json();
+        Alert.alert('Ошибка', errorData.detail || 'Неверное имя пользователя или пароль');
       }
     } catch (error) {
+      console.error('Login error:', error);
       Alert.alert('Ошибка', 'Не удалось подключиться к серверу');
     } finally {
       setLoading(false);
