@@ -55,7 +55,7 @@ export default function UsersScreen() {
     console.log('Updating online status with token:', token.substring(0, 20) + '...');
     
     try {
-      const response = await fetch('http://localhost:8000/api/users/update_online_status', {
+      const response = await fetch('https://board-back-mg7h.onrender.com/api/users/update_online_status', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -89,7 +89,7 @@ export default function UsersScreen() {
 
     try {
       setError(null);
-      const response = await fetch('http://localhost:8000/api/users/', {
+      const response = await fetch('https://board-back-mg7h.onrender.com/api/users/', {
         headers: {
           'Authorization': `Bearer ${token}`
         }

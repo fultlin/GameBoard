@@ -1,6 +1,6 @@
 import { Stack } from 'expo-router';
 import { SafeAreaView, StyleSheet } from 'react-native';
-
+import React from 'react';
 export default function RootLayout() {
   return (
     <SafeAreaView style={styles.container}>
