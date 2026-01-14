@@ -1,6 +1,6 @@
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Cell, GameBoard as GameBoardType } from '../app/types/game';
-import React from 'react';
+
 /**
  * Интерфейс пропсов для компонента игрового поля
  */
